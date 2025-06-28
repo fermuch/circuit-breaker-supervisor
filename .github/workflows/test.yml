@@ -1,0 +1,78 @@
+name: Test
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  MIX_ENV: test
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: erlef/setup-beam@v1
+        with:
+          version-file: .tool-versions
+          version-type: strict
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-
+
+      - name: Install Dependencies
+        run: mix deps.get
+
+      - name: Compile
+        run: mix compile # --warnings-as-errors
+
+      - name: Check Code Formatting
+        run: mix format --dry-run --check-formatted
+
+      - name: Check Code Style
+        run: mix credo
+
+      - name: Execute Tests
+        run: mix coveralls.lcov
+
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v3
+        if: always()
+        with:
+          report_paths: '_build/test/junit/forge/test-junit-report.xml'
+
+      - name: Download Master Code Coverage
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          branch: master
+          name: code-coverage-report
+          path: cover-master
+          workflow: test.yml
+          workflow_conclusion: success
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+
+      - name: Report Code Coverage
+        uses: romeovs/lcov-reporter-action@v0.3.1
+        with:
+          delete-old-comments: true
+          filter-changed-files: true
+          lcov-base: 'cover-master/lcov.info'
+          lcov-file: 'cover/lcov.info'
+        if: github.event_name == 'pull_request'
+
+      - name: Archive Code Coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-coverage-report
+          path: 'cover/lcov.info'
