@@ -5,6 +5,8 @@ defmodule CircuitBreakerSupervisor.Monitor do
 
   use GenServer
 
+  alias CircuitBreakerSupervisor.State
+
   defstruct children: [],
             id_to_ref: %{},
             ref_to_id: %{},
@@ -35,19 +37,13 @@ defmodule CircuitBreakerSupervisor.Monitor do
   end
 
   defp check_child(state, spec) do
-    running? = running?(state, spec)
+    id = spec_to_id(spec)
+    running? = State.running?(state, id)
 
     if running? do
       state
     else
       start_child(state, spec)
-    end
-  end
-
-  defp running?(state, spec) do
-    case pid_for_spec(state, spec) do
-      pid when is_pid(pid) -> Process.alive?(pid)
-      _ -> false
     end
   end
 
@@ -100,20 +96,6 @@ defmodule CircuitBreakerSupervisor.Monitor do
     id_to_ref = Map.drop(id_to_ref, [id])
 
     %__MODULE__{state | id_to_ref: id_to_ref, ref_to_id: ref_to_id}
-  end
-
-  defp pid_for_spec(%__MODULE__{supervisor: supervisor}, spec) do
-    id = spec_to_id(spec)
-
-    Supervisor.which_children(supervisor)
-    |> Enum.find(fn
-      {^id, _, _, _} -> true
-      _ -> false
-    end)
-    |> case do
-      {_, pid, _, _} -> pid
-      _ -> nil
-    end
   end
 
   defp spec_to_id(%{start: {id, _, _}}), do: id
