@@ -1,22 +1,52 @@
 defmodule CircuitBreakerSupervisor do
   @moduledoc """
-  Documentation for `CircuitBreakerSupervisor`.
+  A behaviour module and macro for implementing supervisors with a circuit
+  breaker for crashed children.
   """
 
-  use Supervisor
+  @doc """
+  Given the number of attempts (how many times the process has crashed),
+  determine how long to wait before restarting, in milliseconds. Returning
+  `:timer.seconds(n)` also works.
 
-  def start_link(init_arg) do
-    Supervisor.start_link(__MODULE__, init_arg, name: __MODULE__)
-  end
+  If this callback is not implemented, all crashed processes will be restarted
+  without a delay.
+  """
+  @callback backoff(attempt :: pos_integer()) :: pos_integer()
 
-  @impl true
-  def init(init_arg) do
-    children = Keyword.get(init_arg, :children, [])
+  @doc """
+  Given the id of a supervised process, determine if it should be running.
 
-    [
-      {__MODULE__.Supervisor, []},
-      {__MODULE__.Monitor, children: children, supervisor: __MODULE__.Supervisor}
-    ]
-    |> Supervisor.init(strategy: :one_for_one)
+  If this callback is not implemented, all supervised processes will be
+  enabled.
+
+  This callback should be used to connect monitored processes to feature flags.
+  """
+  @callback enabled?(id :: atom()) :: boolean()
+
+  @optional_callbacks backoff: 1, enabled?: 1
+
+  defmacro __using__(_opts) do
+    quote do
+      use Supervisor
+
+      @behaviour CircuitBreakerSupervisor
+
+      def start_link(init_arg) do
+        Supervisor.start_link(__MODULE__, init_arg, name: __MODULE__)
+      end
+
+      @impl true
+      def init(init_arg) do
+        children = Keyword.get(init_arg, :children, [])
+
+        [
+          {CircuitBreakerSupervisor.Supervisor, name: __MODULE__.Supervisor},
+          {CircuitBreakerSupervisor.Monitor,
+           children: children, supervisor: __MODULE__.Supervisor}
+        ]
+        |> Supervisor.init(strategy: :one_for_one)
+      end
+    end
   end
 end

@@ -8,7 +8,9 @@ defmodule CircuitBreakerSupervisor.Monitor do
   alias CircuitBreakerSupervisor.Monitor
   alias CircuitBreakerSupervisor.State
 
-  defstruct children: %{},
+  defstruct backoff: nil,
+            children: %{},
+            enabled?: nil,
             id_to_ref: %{},
             ref_to_id: %{},
             supervisor: nil
