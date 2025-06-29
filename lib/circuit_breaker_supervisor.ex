@@ -3,16 +3,20 @@ defmodule CircuitBreakerSupervisor do
   Documentation for `CircuitBreakerSupervisor`.
   """
 
-  @doc """
-  Hello world.
+  use Supervisor
 
-  ## Examples
+  def start_link(init_arg) do
+    Supervisor.start_link(__MODULE__, init_arg, name: __MODULE__)
+  end
 
-      iex> CircuitBreakerSupervisor.hello()
-      :world
+  @impl true
+  def init(init_arg) do
+    children = Keyword.get(init_arg, :children, [])
 
-  """
-  def hello do
-    :world
+    [
+      {DynamicSupervisor, name: __MODULE__.Supervisor, strategy: :one_for_one},
+      {__MODULE__.Monitor, children: children, supervisor: __MODULE__.Supervisor}
+    ]
+    |> Supervisor.init(strategy: :one_for_one)
   end
 end
