@@ -5,9 +5,10 @@ defmodule CircuitBreakerSupervisor.Monitor do
 
   use GenServer
 
+  alias CircuitBreakerSupervisor.Monitor
   alias CircuitBreakerSupervisor.State
 
-  defstruct children: [],
+  defstruct children: %{},
             id_to_ref: %{},
             ref_to_id: %{},
             supervisor: nil
@@ -18,8 +19,12 @@ defmodule CircuitBreakerSupervisor.Monitor do
 
   @impl true
   def init(init_arg) do
-    state = %__MODULE__{
-      children: Keyword.fetch!(init_arg, :children),
+    children =
+      Keyword.fetch!(init_arg, :children)
+      |> Map.new(&{spec_to_id(&1), %State{spec: &1}})
+
+    state = %Monitor{
+      children: children,
       supervisor: Keyword.fetch!(init_arg, :supervisor)
     }
 
@@ -32,33 +37,33 @@ defmodule CircuitBreakerSupervisor.Monitor do
   @impl true
   def handle_info(:check_children, state), do: {:noreply, check_children(state)}
 
-  def check_children(%__MODULE__{children: children} = state) do
-    Enum.reduce(children, state, &check_child(&2, &1))
+  def check_children(%Monitor{children: children} = state) do
+    Enum.reduce(children, state, fn {id, _}, acc -> check_child(acc, id) end)
   end
 
-  defp check_child(state, spec) do
-    id = spec_to_id(spec)
+  defp check_child(%Monitor{children: children} = state, id) do
     running? = State.running?(state, id)
 
     if running? do
       state
     else
+      %State{spec: spec} = Map.fetch!(children, id)
       start_child(state, spec)
     end
   end
 
-  defp start_child(%__MODULE__{supervisor: supervisor} = state, spec) do
+  defp start_child(%Monitor{supervisor: supervisor} = state, spec) do
     state = clear_monitor(state, spec)
 
     case Supervisor.start_child(supervisor, spec) do
       {:ok, pid} ->
-        monitor_pid(state, spec, pid)
+        add_monitor(state, spec, pid)
 
       {:ok, pid, _info} ->
-        monitor_pid(state, spec, pid)
+        add_monitor(state, spec, pid)
 
       {:error, {:already_started, pid}} ->
-        monitor_pid(state, spec, pid)
+        add_monitor(state, spec, pid)
 
       # Any other failure and we don't start the child
       {:error, _reason} ->
@@ -71,16 +76,15 @@ defmodule CircuitBreakerSupervisor.Monitor do
     end
   end
 
-  defp monitor_pid(%__MODULE__{ref_to_id: ref_to_id, id_to_ref: id_to_ref} = state, spec, pid) do
+  defp add_monitor(%Monitor{ref_to_id: ref_to_id, id_to_ref: id_to_ref} = state, spec, pid) do
     id = spec_to_id(spec)
     ref = Process.monitor(pid)
     ref_to_id = Map.put(ref_to_id, ref, id)
     id_to_ref = Map.put(id_to_ref, id, ref)
-
-    %__MODULE__{state | ref_to_id: ref_to_id, id_to_ref: id_to_ref}
+    %Monitor{state | ref_to_id: ref_to_id, id_to_ref: id_to_ref}
   end
 
-  defp clear_monitor(%__MODULE__{ref_to_id: ref_to_id, id_to_ref: id_to_ref} = state, spec) do
+  defp clear_monitor(%Monitor{ref_to_id: ref_to_id, id_to_ref: id_to_ref} = state, spec) do
     id = spec_to_id(spec)
 
     ref_to_id =
@@ -95,10 +99,10 @@ defmodule CircuitBreakerSupervisor.Monitor do
 
     id_to_ref = Map.drop(id_to_ref, [id])
 
-    %__MODULE__{state | id_to_ref: id_to_ref, ref_to_id: ref_to_id}
+    %Monitor{state | id_to_ref: id_to_ref, ref_to_id: ref_to_id}
   end
 
-  defp spec_to_id(%{start: {id, _, _}}), do: id
   defp spec_to_id(%{id: id}), do: id
+  defp spec_to_id(%{start: {id, _, _}}), do: id
   defp spec_to_id(id) when is_atom(id), do: id
 end

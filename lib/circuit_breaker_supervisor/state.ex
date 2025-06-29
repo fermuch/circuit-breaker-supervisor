@@ -15,6 +15,7 @@ defmodule CircuitBreakerSupervisor.State do
   alias CircuitBreakerSupervisor.Monitor
 
   defstruct attempt_count: 0,
+            spec: nil,
             started_at: nil,
             stopped_at: nil
 
