@@ -40,10 +40,16 @@ defmodule CircuitBreakerSupervisor do
       def init(init_arg) do
         children = Keyword.get(init_arg, :children, [])
 
+        backoff_fn = if Kernel.function_exported?(__MODULE__, :backoff, 1), do: &backoff/1
+        enabled_fn = if Kernel.function_exported?(__MODULE__, :enabled?, 1), do: &enabled?/1
+
         [
           {CircuitBreakerSupervisor.Supervisor, name: __MODULE__.Supervisor},
           {CircuitBreakerSupervisor.Monitor,
-           children: children, supervisor: __MODULE__.Supervisor}
+           backoff: backoff_fn,
+           children: children,
+           enabled?: enabled_fn,
+           supervisor: __MODULE__.Supervisor}
         ]
         |> Supervisor.init(strategy: :one_for_one)
       end

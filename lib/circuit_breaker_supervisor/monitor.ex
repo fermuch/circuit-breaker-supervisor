@@ -29,7 +29,9 @@ defmodule CircuitBreakerSupervisor.Monitor do
       end)
 
     state = %Monitor{
+      backoff: Keyword.fetch!(init_arg, :backoff),
       children: children,
+      enabled?: Keyword.fetch!(init_arg, :enabled?),
       supervisor: Keyword.fetch!(init_arg, :supervisor)
     }
 
