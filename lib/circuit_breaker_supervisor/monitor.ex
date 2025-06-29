@@ -21,7 +21,10 @@ defmodule CircuitBreakerSupervisor.Monitor do
   def init(init_arg) do
     children =
       Keyword.fetch!(init_arg, :children)
-      |> Map.new(&{spec_to_id(&1), %State{spec: &1}})
+      |> Map.new(fn spec ->
+        spec = set_restart_temporary(spec)
+        {spec_to_id(spec), %State{spec: spec}}
+      end)
 
     state = %Monitor{
       children: children,
@@ -36,6 +39,19 @@ defmodule CircuitBreakerSupervisor.Monitor do
 
   @impl true
   def handle_info(:check_children, state), do: {:noreply, check_children(state)}
+
+  @impl true
+  def handle_info({:DOWN, ref, :process, _pid, _reason}, %Monitor{ref_to_id: ref_to_id} = state) do
+    id = Map.get(ref_to_id, ref)
+
+    # TODO: should normal shutdowns get recorded and prevent the process from
+    # being restarted?
+    state =
+      clear_monitor(state, id)
+      |> check_child(id)
+
+    {:noreply, state}
+  end
 
   def check_children(%Monitor{children: children} = state) do
     Enum.reduce(children, state, fn {id, _}, acc -> check_child(acc, id) end)
@@ -105,4 +121,7 @@ defmodule CircuitBreakerSupervisor.Monitor do
   defp spec_to_id(%{id: id}), do: id
   defp spec_to_id(%{start: {id, _, _}}), do: id
   defp spec_to_id(id) when is_atom(id), do: id
+
+  defp set_restart_temporary(spec) when is_map(spec), do: Map.put(spec, :restart, :temporary)
+  defp set_restart_temporary(spec), do: spec
 end

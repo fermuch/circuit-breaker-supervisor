@@ -8,6 +8,20 @@ defmodule CircuitBreakerSupervisorTest do
     assert %{active: 2} = Supervisor.count_children(CircuitBreakerSupervisor.Supervisor)
   end
 
+  test "restarts crashed child" do
+    children = [sleepy_worker(id: :one), sleepy_worker(id: :two)]
+    {:ok, _pid} = start_supervised({CircuitBreakerSupervisor, children: children})
+
+    # kill child
+    :ok = Supervisor.terminate_child(CircuitBreakerSupervisor.Supervisor, :one)
+    assert %{active: 1} = Supervisor.count_children(CircuitBreakerSupervisor.Supervisor)
+
+    # wait for it to be restarted, should be restarted right away without
+    # waiting for `check_children` to be called
+    Process.sleep(100)
+    assert %{active: 2} = Supervisor.count_children(CircuitBreakerSupervisor.Supervisor)
+  end
+
   defp sleepy_worker(opts) do
     mfa = {Task, :start_link, [Process, :sleep, [:infinity]]}
     Supervisor.child_spec(%{id: Task, start: mfa}, opts)
