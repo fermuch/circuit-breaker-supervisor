@@ -14,7 +14,7 @@ defmodule CircuitBreakerSupervisor do
     children = Keyword.get(init_arg, :children, [])
 
     [
-      {DynamicSupervisor, name: __MODULE__.Supervisor, strategy: :one_for_one},
+      {__MODULE__.Supervisor, []},
       {__MODULE__.Monitor, children: children, supervisor: __MODULE__.Supervisor}
     ]
     |> Supervisor.init(strategy: :one_for_one)

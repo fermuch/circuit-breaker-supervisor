@@ -1,5 +1,6 @@
 defmodule CircuitBreakerSupervisor.Monitor do
   @moduledoc """
+  Monitors processes held by `CircuitBreakerSupervisor.Supervisor`.
   """
 
   use GenServer
@@ -53,7 +54,7 @@ defmodule CircuitBreakerSupervisor.Monitor do
   defp start_child(%__MODULE__{supervisor: supervisor} = state, spec) do
     state = clear_monitor(state, spec)
 
-    case DynamicSupervisor.start_child(supervisor, spec) do
+    case Supervisor.start_child(supervisor, spec) do
       {:ok, pid} ->
         monitor_pid(state, spec, pid)
 
@@ -102,20 +103,16 @@ defmodule CircuitBreakerSupervisor.Monitor do
   end
 
   defp pid_for_spec(%__MODULE__{supervisor: supervisor}, spec) do
-    maybe_child =
-      DynamicSupervisor.which_children(supervisor)
-      # Always return the last created process, helpful for race conditions
-      |> Enum.reverse()
-      |> Enum.find(fn
-        {_, _, _, [maybe_id]} -> maybe_id == spec_to_id(spec)
-      end)
+    id = spec_to_id(spec)
 
-    case maybe_child do
-      {_, pid, _, _} ->
-        pid
-
-      _ ->
-        nil
+    Supervisor.which_children(supervisor)
+    |> Enum.find(fn
+      {^id, _, _, _} -> true
+      _ -> false
+    end)
+    |> case do
+      {_, pid, _, _} -> pid
+      _ -> nil
     end
   end
 
