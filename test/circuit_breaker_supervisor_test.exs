@@ -7,6 +7,12 @@ defmodule CircuitBreakerSupervisorTest do
     assert %{active: 2} = Supervisor.count_children(DummySupervisor.Supervisor)
   end
 
+  test "only starts enabled children" do
+    children = [sleepy_worker(id: :one), sleepy_worker(id: :disable_me)]
+    {:ok, _pid} = start_supervised({DummySupervisor, children: children})
+    assert %{active: 1} = Supervisor.count_children(DummySupervisor.Supervisor)
+  end
+
   test "restarts crashed child" do
     children = [sleepy_worker(id: :one), sleepy_worker(id: :two)]
     {:ok, _pid} = start_supervised({DummySupervisor, children: children})
