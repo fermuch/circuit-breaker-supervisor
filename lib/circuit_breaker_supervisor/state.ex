@@ -78,6 +78,15 @@ defmodule CircuitBreakerSupervisor.State do
     end
   end
 
+  @doc """
+  Increment the attempt_count to record a failed startup attempt.
+  """
+  def record_startup_crash(%Monitor{children: children} = monitor_state, id) do
+    state = Map.fetch!(children, id)
+    state = record_stop(monitor_state, state)
+    %{monitor_state | children: Map.put(children, id, state)}
+  end
+
   defp running?(supervisor, id) do
     case id_to_pid(supervisor, id) do
       pid when is_pid(pid) -> Process.alive?(pid)

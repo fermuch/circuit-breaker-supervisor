@@ -100,11 +100,11 @@ defmodule CircuitBreakerSupervisor.Monitor do
       # Any other failure and we don't start the child
       {:error, _reason} ->
         # failure during startup
-        state
+        State.record_startup_crash(state, id)
 
       :ignore ->
         # failure during startup
-        state
+        State.record_startup_crash(state, id)
     end
   end
 
