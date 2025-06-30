@@ -12,6 +12,7 @@ defmodule CircuitBreakerSupervisor.Monitor do
             children: %{},
             enabled?: nil,
             id_to_ref: %{},
+            poll_interval: 0,
             ref_to_id: %{},
             supervisor: nil
 
@@ -32,6 +33,7 @@ defmodule CircuitBreakerSupervisor.Monitor do
       backoff: Keyword.fetch!(init_arg, :backoff),
       children: children,
       enabled?: Keyword.fetch!(init_arg, :enabled?),
+      poll_interval: Keyword.fetch!(init_arg, :poll_interval),
       supervisor: Keyword.fetch!(init_arg, :supervisor)
     }
 
@@ -57,7 +59,11 @@ defmodule CircuitBreakerSupervisor.Monitor do
     {:noreply, state}
   end
 
-  defp check_children(%Monitor{children: children} = state) do
+  defp check_children(%Monitor{children: children, poll_interval: poll_interval} = state) do
+    # schedule next monitoring loop
+    Process.send_after(self(), :check_children, poll_interval)
+
+    # check all children
     Enum.reduce(children, state, fn {id, _}, acc -> check_child(acc, id) end)
   end
 

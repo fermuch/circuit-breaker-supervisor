@@ -26,7 +26,7 @@ defmodule CircuitBreakerSupervisor do
 
   @optional_callbacks backoff: 1, enabled?: 1
 
-  defmacro __using__(_opts) do
+  defmacro __using__(opts) do
     quote do
       use Supervisor
 
@@ -49,6 +49,7 @@ defmodule CircuitBreakerSupervisor do
            backoff: backoff_fn,
            children: children,
            enabled?: enabled_fn,
+           poll_interval: unquote(Keyword.get(opts, :poll_interval, 1000)),
            supervisor: __MODULE__.Supervisor}
         ]
         |> Supervisor.init(strategy: :one_for_one)
