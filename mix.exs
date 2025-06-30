@@ -1,6 +1,8 @@
 defmodule CircuitBreakerSupervisor.MixProject do
   use Mix.Project
 
+  @source_url "https://github.com/notslang/circuit-breaker-supervisor"
+
   def project do
     [
       app: :circuit_breaker_supervisor,
@@ -19,8 +21,8 @@ defmodule CircuitBreakerSupervisor.MixProject do
 
       # Docs
       name: "Circuit Breaker Supervisor",
-      source_url: "https://github.com/notslang/circuit-breaker-supervisor",
-      homepage_url: "https://github.com/notslang/circuit-breaker-supervisor",
+      source_url: @source_url,
+      homepage_url: @source_url,
       docs: &docs/0
     ]
   end
@@ -54,7 +56,8 @@ defmodule CircuitBreakerSupervisor.MixProject do
     [
       maintainers: ["Sean Lang"],
       licenses: ["MIT"],
-      files: ~w(lib mix.exs README* CHANGELOG* LICENSE*)
+      files: ~w(lib mix.exs README* CHANGELOG* LICENSE*),
+      links: %{"GitHub" => @source_url}
     ]
   end
 end
