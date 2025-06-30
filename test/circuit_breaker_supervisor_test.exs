@@ -1,21 +1,41 @@
 defmodule CircuitBreakerSupervisorTest do
   use ExUnit.Case
 
+  setup do
+    start_supervised!(DummyFeatureFlagService)
+    :ok
+  end
+
   test "starts supervised children" do
     children = [sleepy_worker(id: :one), sleepy_worker(id: :two)]
-    {:ok, _pid} = start_supervised({DummySupervisor, children: children})
+    start_supervised!({DummySupervisor, children: children})
     assert %{active: 2} = Supervisor.count_children(DummySupervisor.Supervisor)
   end
 
   test "only starts enabled children" do
+    # mark child disabled before startup
+    DummyFeatureFlagService.disable(:disable_me)
     children = [sleepy_worker(id: :one), sleepy_worker(id: :disable_me)]
-    {:ok, _pid} = start_supervised({DummySupervisor, children: children})
+    start_supervised!({DummySupervisor, children: children})
+    assert %{active: 1} = Supervisor.count_children(DummySupervisor.Supervisor)
+  end
+
+  test "terminates disabled children" do
+    # startup with child enabled
+    children = [sleepy_worker(id: :one), sleepy_worker(id: :disable_me)]
+    start_supervised!({DummySupervisor, children: children})
+    assert %{active: 2} = Supervisor.count_children(DummySupervisor.Supervisor)
+
+    # disable child and verify that it is terminated
+    DummyFeatureFlagService.disable(:disable_me)
+    send(CircuitBreakerSupervisor.Monitor, :check_children)
+    Process.sleep(100)
     assert %{active: 1} = Supervisor.count_children(DummySupervisor.Supervisor)
   end
 
   test "restarts crashed child" do
     children = [sleepy_worker(id: :one), sleepy_worker(id: :two)]
-    {:ok, _pid} = start_supervised({DummySupervisor, children: children})
+    start_supervised!({DummySupervisor, children: children})
 
     # kill child
     :ok = Supervisor.terminate_child(DummySupervisor.Supervisor, :one)

@@ -62,30 +62,27 @@ defmodule CircuitBreakerSupervisor.Monitor do
   end
 
   defp check_child(state, id) do
-    child_state = State.get_state(state, id)
+    %State{status: status, spec: spec} = State.get_state(state, id)
 
-    case child_state.status do
-      :stopped_past_backoff ->
-        %State{spec: spec} = child_state
-        start_child(state, spec)
-
-      _ ->
-        state
+    case status do
+      :running_disabled -> stop_child(state, id)
+      :stopped_past_backoff -> start_child(state, id, spec)
+      _ -> state
     end
   end
 
-  defp start_child(%Monitor{supervisor: supervisor} = state, spec) do
-    state = clear_monitor(state, spec)
+  defp start_child(%Monitor{supervisor: supervisor} = state, id, spec) do
+    state = clear_monitor(state, id)
 
     case Supervisor.start_child(supervisor, spec) do
       {:ok, pid} ->
-        add_monitor(state, spec, pid)
+        add_monitor(state, id, pid)
 
       {:ok, pid, _info} ->
-        add_monitor(state, spec, pid)
+        add_monitor(state, id, pid)
 
       {:error, {:already_started, pid}} ->
-        add_monitor(state, spec, pid)
+        add_monitor(state, id, pid)
 
       # Any other failure and we don't start the child
       {:error, _reason} ->
@@ -98,17 +95,20 @@ defmodule CircuitBreakerSupervisor.Monitor do
     end
   end
 
-  defp add_monitor(%Monitor{ref_to_id: ref_to_id, id_to_ref: id_to_ref} = state, spec, pid) do
-    id = spec_to_id(spec)
+  defp stop_child(%Monitor{supervisor: supervisor} = state, id) do
+    # monitor will be cleared by handler for :DOWN message 
+    Supervisor.terminate_child(supervisor, id)
+    state
+  end
+
+  defp add_monitor(%Monitor{ref_to_id: ref_to_id, id_to_ref: id_to_ref} = state, id, pid) do
     ref = Process.monitor(pid)
     ref_to_id = Map.put(ref_to_id, ref, id)
     id_to_ref = Map.put(id_to_ref, id, ref)
     %Monitor{state | ref_to_id: ref_to_id, id_to_ref: id_to_ref}
   end
 
-  defp clear_monitor(%Monitor{ref_to_id: ref_to_id, id_to_ref: id_to_ref} = state, spec) do
-    id = spec_to_id(spec)
-
+  defp clear_monitor(%Monitor{ref_to_id: ref_to_id, id_to_ref: id_to_ref} = state, id) do
     ref_to_id =
       case Map.get(id_to_ref, id) do
         nil ->
