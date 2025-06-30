@@ -9,7 +9,13 @@ defmodule CircuitBreakerSupervisor.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       test_coverage: [tool: ExCoveralls],
-      deps: deps()
+      deps: deps(),
+
+      # Docs
+      name: "Circuit Breaker Supervisor",
+      source_url: "https://github.com/notslang/circuit-breaker-supervisor",
+      homepage_url: "https://github.com/notslang/circuit-breaker-supervisor",
+      docs: &docs/0
     ]
   end
 
@@ -25,7 +31,16 @@ defmodule CircuitBreakerSupervisor.MixProject do
   defp deps do
     [
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:ex_doc, "~> 0.34", only: :dev, runtime: false, warn_if_outdated: true},
       {:excoveralls, "~> 0.10", only: :test}
+    ]
+  end
+
+  defp docs do
+    [
+      main: "readme",
+      extras: ["README.md"],
+      formatters: ["html"]
     ]
   end
 end
