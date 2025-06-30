@@ -9,6 +9,7 @@ defmodule CircuitBreakerSupervisor.Monitor do
   alias CircuitBreakerSupervisor.State
 
   defstruct backoff: nil,
+            child_startup_time: 0,
             children: %{},
             enabled?: nil,
             id_to_ref: %{},
@@ -31,6 +32,7 @@ defmodule CircuitBreakerSupervisor.Monitor do
 
     state = %Monitor{
       backoff: Keyword.fetch!(init_arg, :backoff),
+      child_startup_time: Keyword.fetch!(init_arg, :child_startup_time),
       children: children,
       enabled?: Keyword.fetch!(init_arg, :enabled?),
       poll_interval: Keyword.fetch!(init_arg, :poll_interval),
@@ -83,12 +85,15 @@ defmodule CircuitBreakerSupervisor.Monitor do
     case Supervisor.start_child(supervisor, spec) do
       {:ok, pid} ->
         add_monitor(state, id, pid)
+        |> check_child(id)
 
       {:ok, pid, _info} ->
         add_monitor(state, id, pid)
+        |> check_child(id)
 
       {:error, {:already_started, pid}} ->
         add_monitor(state, id, pid)
+        |> check_child(id)
 
       # Any other failure and we don't start the child
       {:error, _reason} ->
@@ -102,7 +107,7 @@ defmodule CircuitBreakerSupervisor.Monitor do
   end
 
   defp stop_child(%Monitor{supervisor: supervisor} = state, id) do
-    # monitor will be cleared by handler for :DOWN message 
+    # monitor will be cleared by handler for :DOWN message
     Supervisor.terminate_child(supervisor, id)
     state
   end

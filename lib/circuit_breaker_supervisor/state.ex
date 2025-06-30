@@ -24,7 +24,12 @@ defmodule CircuitBreakerSupervisor.State do
 
   # recompute state for the process and return it
   def get_state(
-        %Monitor{children: children, enabled?: enabled?, supervisor: supervisor} = monitor_state,
+        %Monitor{
+          child_startup_time: startup_time,
+          children: children,
+          enabled?: enabled?,
+          supervisor: supervisor
+        } = monitor_state,
         id
       ) do
     state = Map.fetch!(children, id)
@@ -36,8 +41,21 @@ defmodule CircuitBreakerSupervisor.State do
         %{state | status: :running_disabled}
 
       running and enabled ->
-        # if started_at isn't set, set it to current time
-        %{state | status: :running_past_startup}
+        state =
+          if is_nil(state.started_at) do
+            # if we just started, then set started_at and clear stopped_at
+            record_start(state)
+          else
+            state
+          end
+
+        # after a process has been running for long enough, past failures
+        # shouldn't matter. reset the attempt count to 0
+        if now() >= state.started_at + startup_time do
+          %{state | attempt_count: 0, status: :running_past_startup}
+        else
+          %{state | status: :running_in_startup}
+        end
 
       not running and not enabled ->
         %{state | status: :stopped_disabled}
@@ -47,7 +65,7 @@ defmodule CircuitBreakerSupervisor.State do
           if is_nil(state.stopped_at) do
             # if we just crashed, then set stopped_at, compute backoff_time,
             # and increment attempt_count
-            record_crash(monitor_state, state)
+            record_stop(monitor_state, state)
           else
             state
           end
@@ -67,12 +85,19 @@ defmodule CircuitBreakerSupervisor.State do
     end
   end
 
-  defp record_crash(%Monitor{backoff: backoff}, %State{attempt_count: attempt_count} = state) do
+  defp record_start(%State{} = state) do
+    %{state | backoff_time: nil, started_at: now(), stopped_at: nil}
+  end
+
+  defp record_stop(%Monitor{backoff: backoff}, %State{attempt_count: attempt_count} = state) do
+    attempt_count = attempt_count + 1
+
     %{
       state
-      | stopped_at: now(),
-        attempt_count: attempt_count + 1,
-        backoff_time: backoff.(attempt_count + 1)
+      | attempt_count: attempt_count,
+        backoff_time: backoff.(attempt_count),
+        started_at: nil,
+        stopped_at: now()
     }
   end
 

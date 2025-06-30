@@ -47,6 +47,7 @@ defmodule CircuitBreakerSupervisor do
           {CircuitBreakerSupervisor.Supervisor, name: __MODULE__.Supervisor},
           {CircuitBreakerSupervisor.Monitor,
            backoff: backoff_fn,
+           child_startup_time: unquote(Keyword.get(opts, :child_startup_time, 60_000)),
            children: children,
            enabled?: enabled_fn,
            poll_interval: unquote(Keyword.get(opts, :poll_interval, 1000)),
