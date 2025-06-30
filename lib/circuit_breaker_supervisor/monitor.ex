@@ -57,18 +57,20 @@ defmodule CircuitBreakerSupervisor.Monitor do
     {:noreply, state}
   end
 
-  def check_children(%Monitor{children: children} = state) do
+  defp check_children(%Monitor{children: children} = state) do
     Enum.reduce(children, state, fn {id, _}, acc -> check_child(acc, id) end)
   end
 
-  defp check_child(%Monitor{children: children} = state, id) do
-    running? = State.running?(state, id)
+  defp check_child(state, id) do
+    child_state = State.get_state(state, id)
 
-    if running? do
-      state
-    else
-      %State{spec: spec} = Map.fetch!(children, id)
-      start_child(state, spec)
+    case child_state.status do
+      :stopped_past_backoff ->
+        %State{spec: spec} = child_state
+        start_child(state, spec)
+
+      _ ->
+        state
     end
   end
 

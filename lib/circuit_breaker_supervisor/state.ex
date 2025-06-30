@@ -9,22 +9,74 @@ defmodule CircuitBreakerSupervisor.State do
   - running_past_startup (process is running, and we can reset the attempt counter because it has recovered)
   - stopped_disabled (feature flag turned off, should not be restarted)
   - stopped_in_backoff (process crashed, but we need to wait before retrying it)
-  - stopped_past_backoff (process crashed and is ready to be retried)
+  - stopped_past_backoff (process crashed and is ready to be retried, or hasn't been started)
   """
 
   alias CircuitBreakerSupervisor.Monitor
+  alias CircuitBreakerSupervisor.State
 
-  defstruct attempt_count: 0,
+  defstruct attempt_count: -1,
+            backoff_time: 0,
             spec: nil,
             started_at: nil,
+            status: :stopped_past_backoff,
             stopped_at: nil
 
-  def running?(%Monitor{supervisor: supervisor}, id) do
+  # recompute state for the process and return it
+  def get_state(
+        %Monitor{children: children, enabled?: enabled?, supervisor: supervisor} = monitor_state,
+        id
+      ) do
+    state = Map.fetch!(children, id)
+    enabled = enabled?.(id)
+    running = running?(supervisor, id)
+
+    cond do
+      running and not enabled ->
+        %{state | status: :running_disabled}
+
+      running and enabled ->
+        # if started_at isn't set, set it to current time
+        %{state | status: :running_past_startup}
+
+      not running and not enabled ->
+        %{state | status: :stopped_disabled}
+
+      not running and enabled ->
+        state =
+          if is_nil(state.stopped_at) do
+            # if we just crashed, then set stopped_at, compute backoff_time,
+            # and increment attempt_count
+            record_crash(monitor_state, state)
+          else
+            state
+          end
+
+        if now() >= state.stopped_at + state.backoff_time do
+          %{state | status: :stopped_past_backoff}
+        else
+          %{state | status: :stopped_in_backoff}
+        end
+    end
+  end
+
+  defp running?(supervisor, id) do
     case id_to_pid(supervisor, id) do
       pid when is_pid(pid) -> Process.alive?(pid)
       _ -> false
     end
   end
+
+  defp record_crash(%Monitor{backoff: backoff}, %State{attempt_count: attempt_count} = state) do
+    %{
+      state
+      | stopped_at: now(),
+        attempt_count: attempt_count + 1,
+        backoff_time: backoff.(attempt_count + 1)
+    }
+  end
+
+  defp now, do: System.monotonic_time(:millisecond)
 
   @spec id_to_pid(Supervisor.supervisor(), atom()) :: pid()
   defp id_to_pid(supervisor, id) do
