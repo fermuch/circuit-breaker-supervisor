@@ -69,8 +69,10 @@ defmodule CircuitBreakerSupervisor.Monitor do
     Enum.reduce(children, state, fn {id, _}, acc -> check_child(acc, id) end)
   end
 
-  defp check_child(state, id) do
-    %State{status: status, spec: spec} = State.get_state(state, id)
+  defp check_child(%Monitor{children: children} = state, id) do
+    child_state = State.get_state(state, id)
+    state = %{state | children: Map.put(children, id, child_state)}
+    %State{status: status, spec: spec} = child_state
 
     case status do
       :running_disabled -> stop_child(state, id)
