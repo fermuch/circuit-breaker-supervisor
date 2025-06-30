@@ -11,6 +11,12 @@ defmodule CircuitBreakerSupervisor.MixProject do
       test_coverage: [tool: ExCoveralls],
       deps: deps(),
 
+      # Hex
+      package: package(),
+      description: """
+      An Elixir supervisor implementation, where failed processes trip a circuit breaker.
+      """,
+
       # Docs
       name: "Circuit Breaker Supervisor",
       source_url: "https://github.com/notslang/circuit-breaker-supervisor",
@@ -41,6 +47,14 @@ defmodule CircuitBreakerSupervisor.MixProject do
       main: "readme",
       extras: ["README.md"],
       formatters: ["html"]
+    ]
+  end
+
+  defp package do
+    [
+      maintainers: ["Sean Lang"],
+      licenses: ["MIT"],
+      files: ~w(lib mix.exs README* CHANGELOG* LICENSE*)
     ]
   end
 end
