@@ -40,7 +40,9 @@ defmodule CircuitBreakerSupervisor.MixProject do
     [
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false, warn_if_outdated: true},
-      {:excoveralls, "~> 0.10", only: :test}
+      {:excoveralls, "~> 0.10", only: :test},
+      {:telemetry, "~> 1.0"},
+      {:telemetry_test, "~> 0.1.2", only: :test}
     ]
   end
 
