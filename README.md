@@ -72,6 +72,21 @@ defmodule MyApp.Application do
 end
 ```
 
+## Telemetry
+
+The following events are emitted when child processes are started / stopped:
+
+- `[:circuit_breaker_supervisor, :child, :stop]`
+- `[:circuit_breaker_supervisor, :child, :start]`
+
+### Measures
+
+- `attempt_count` - The number of times the process has been restarted since the last time it was considered healthy.
+
+### Metadata
+
+- `id` - The same id that is passed in with the `child_spec`
+
 ## Related Projects
 
 - https://knock.app/blog/controlling-elixir-supervisors-at-runtime-with-feature-flags

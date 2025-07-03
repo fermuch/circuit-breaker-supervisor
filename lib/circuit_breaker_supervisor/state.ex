@@ -87,6 +87,30 @@ defmodule CircuitBreakerSupervisor.State do
     %{monitor_state | children: Map.put(children, id, state)}
   end
 
+  def emit_start_telemetry(%Monitor{children: children} = monitor_state, id) do
+    state = Map.fetch!(children, id)
+
+    :telemetry.execute(
+      [:circuit_breaker_supervisor, :child, :start],
+      %{attempt_count: state.attempt_count},
+      %{id: id}
+    )
+
+    monitor_state
+  end
+
+  def emit_stop_telemetry(%Monitor{children: children} = monitor_state, id) do
+    state = Map.fetch!(children, id)
+
+    :telemetry.execute(
+      [:circuit_breaker_supervisor, :child, :stop],
+      %{attempt_count: state.attempt_count},
+      %{id: id}
+    )
+
+    monitor_state
+  end
+
   defp running?(supervisor, id) do
     case id_to_pid(supervisor, id) do
       pid when is_pid(pid) -> Process.alive?(pid)

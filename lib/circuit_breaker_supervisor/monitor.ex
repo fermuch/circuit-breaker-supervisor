@@ -56,6 +56,7 @@ defmodule CircuitBreakerSupervisor.Monitor do
     # being restarted?
     state =
       clear_monitor(state, id)
+      |> State.emit_stop_telemetry(id)
       |> check_child(id)
 
     {:noreply, state}
@@ -87,29 +88,35 @@ defmodule CircuitBreakerSupervisor.Monitor do
     case Supervisor.start_child(supervisor, spec) do
       {:ok, pid} ->
         add_monitor(state, id, pid)
+        |> State.emit_start_telemetry(id)
         |> check_child(id)
 
       {:ok, pid, _info} ->
         add_monitor(state, id, pid)
+        |> State.emit_start_telemetry(id)
         |> check_child(id)
 
       {:error, {:already_started, pid}} ->
         add_monitor(state, id, pid)
+        |> State.emit_start_telemetry(id)
         |> check_child(id)
 
       # Any other failure and we don't start the child
       {:error, _reason} ->
         # failure during startup
-        State.record_startup_crash(state, id)
+        State.emit_stop_telemetry(state, id)
+        |> State.record_startup_crash(id)
 
       :ignore ->
         # failure during startup
-        State.record_startup_crash(state, id)
+        State.emit_stop_telemetry(state, id)
+        |> State.record_startup_crash(id)
     end
   end
 
   defp stop_child(%Monitor{supervisor: supervisor} = state, id) do
-    # monitor will be cleared by handler for :DOWN message
+    # telemetry event will be sent and monitor will be cleared by handler for
+    # `:DOWN` message
     Supervisor.terminate_child(supervisor, id)
     state
   end
