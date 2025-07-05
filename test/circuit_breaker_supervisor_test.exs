@@ -85,10 +85,34 @@ defmodule CircuitBreakerSupervisorTest do
     assert %{active: 2} = Supervisor.count_children(DummySupervisor.Supervisor)
   end
 
+  @tag telemetry_listen: [:circuit_breaker_supervisor, :child, :stop]
+  test "restarts child that crashes during startup" do
+    children = [startup_crash_worker(id: :crash)]
+    start_supervised!({DummySupervisor, children: children})
+
+    # no start event because it never starts, only a stop
+    assert_telemetry_stop(:crash, 0)
+
+    # check_children should trigger a retry, since backoff is 0
+    send(CircuitBreakerSupervisor.Monitor, :check_children)
+
+    # attempt count should be incremented
+    assert_telemetry_stop(:crash, 1)
+    assert %{active: 0} = Supervisor.count_children(DummySupervisor.Supervisor)
+  end
+
   defp sleepy_worker(opts) do
     mfa = {Task, :start_link, [Process, :sleep, [:infinity]]}
     Supervisor.child_spec(%{id: Task, start: mfa}, opts)
   end
+
+  defp startup_crash_worker(opts) do
+    # crashes on startup, because start_link is replaced with a fn that raises
+    mfa = {__MODULE__, :crashing_start_link, []}
+    Supervisor.child_spec(%{id: :crashing_worker, start: mfa}, opts)
+  end
+
+  def crash_start_link, do: raise("startup crash")
 
   defp assert_telemetry_start(id, attempt_count) do
     assert_receive {:telemetry_event,
