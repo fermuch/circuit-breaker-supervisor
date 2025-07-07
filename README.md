@@ -7,7 +7,7 @@ Add `circuit_breaker_supervisor` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:circuit_breaker_supervisor, "~> 0.1.0"}
+    {:circuit_breaker_supervisor, "~> 0.0.0-rc.1"}
   ]
 end
 ```
