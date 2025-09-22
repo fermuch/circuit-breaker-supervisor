@@ -18,7 +18,7 @@ defmodule CircuitBreakerSupervisor.Monitor do
             supervisor: nil
 
   def start_link(init_arg) do
-    GenServer.start_link(__MODULE__, init_arg, name: __MODULE__)
+    GenServer.start_link(__MODULE__, init_arg, name: {:global, {:circuit_breaker_monitor, Keyword.get(init_arg, :id)}})
   end
 
   @impl true

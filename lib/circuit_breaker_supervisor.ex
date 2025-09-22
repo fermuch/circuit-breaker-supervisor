@@ -33,7 +33,9 @@ defmodule CircuitBreakerSupervisor do
       @behaviour CircuitBreakerSupervisor
 
       def start_link(init_arg) do
-        Supervisor.start_link(__MODULE__, init_arg, name: __MODULE__)
+        id = UUID.uuid4()
+        init_arg = Keyword.put(init_arg, :id, id)
+        Supervisor.start_link(__MODULE__, init_arg, name: {:global, {:circuit_breaker_supervisor, id}})
       end
 
       @impl true
@@ -43,15 +45,18 @@ defmodule CircuitBreakerSupervisor do
         backoff_fn = if Kernel.function_exported?(__MODULE__, :backoff, 1), do: &backoff/1
         enabled_fn = if Kernel.function_exported?(__MODULE__, :enabled?, 1), do: &enabled?/1
 
+        supervisor_name = {:global, {:circuit_breaker_supervisor, Keyword.get(init_arg, :id)}}
+
         [
-          {CircuitBreakerSupervisor.Supervisor, name: __MODULE__.Supervisor},
+          {CircuitBreakerSupervisor.Supervisor, name: supervisor_name},
           {CircuitBreakerSupervisor.Monitor,
+           id: Keyword.get(init_arg, :id),
            backoff: backoff_fn,
            child_startup_time: unquote(Keyword.get(opts, :child_startup_time, 60_000)),
            children: children,
            enabled?: enabled_fn,
            poll_interval: unquote(Keyword.get(opts, :poll_interval, 1000)),
-           supervisor: __MODULE__.Supervisor}
+           supervisor: supervisor_name}
         ]
         |> Supervisor.init(strategy: :one_for_one)
       end
