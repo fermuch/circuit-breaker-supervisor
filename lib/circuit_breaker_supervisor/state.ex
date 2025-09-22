@@ -138,6 +138,10 @@ defmodule CircuitBreakerSupervisor.State do
 
   @spec id_to_pid(Supervisor.supervisor(), atom()) :: pid()
   defp id_to_pid(supervisor, id) do
+    {:global, name} = supervisor
+
+    supervisor = :global.whereis_name(name)
+
     Supervisor.which_children(supervisor)
     |> Enum.find(fn
       {^id, _, _, _} -> true

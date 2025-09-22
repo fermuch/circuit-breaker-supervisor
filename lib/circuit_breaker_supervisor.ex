@@ -45,7 +45,7 @@ defmodule CircuitBreakerSupervisor do
         backoff_fn = if Kernel.function_exported?(__MODULE__, :backoff, 1), do: &backoff/1
         enabled_fn = if Kernel.function_exported?(__MODULE__, :enabled?, 1), do: &enabled?/1
 
-        supervisor_name = {:global, {:circuit_breaker_supervisor, Keyword.get(init_arg, :id)}}
+        supervisor_name = {:global, {:circuit_breaker_sub_supervisor, Keyword.get(init_arg, :id)}}
 
         [
           {CircuitBreakerSupervisor.Supervisor, name: supervisor_name},
