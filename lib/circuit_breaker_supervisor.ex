@@ -26,8 +26,6 @@ defmodule CircuitBreakerSupervisor do
 
   @optional_callbacks backoff: 1, enabled?: 1
 
-  require Logger
-
   defmacro __using__(opts) do
     quote do
       use Supervisor
