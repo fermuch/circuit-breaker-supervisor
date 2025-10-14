@@ -138,11 +138,22 @@ defmodule CircuitBreakerSupervisor.State do
 
   @spec id_to_pid(Supervisor.supervisor(), atom()) :: pid()
   defp id_to_pid(supervisor, id) do
-    {:global, name} = supervisor
+    if is_horde_registry?(supervisor) do
+      supervisor
+      |> Horde.DynamicSupervisor.which_children()
+      |> find_child(id)
+    else
+      {:global, name} = supervisor
+      supervisor = :global.whereis_name(name)
 
-    supervisor = :global.whereis_name(name)
+      supervisor
+      |> Supervisor.which_children()
+      |> find_child(id)
+    end
+  end
 
-    Supervisor.which_children(supervisor)
+  defp find_child(sup_children, id) do
+    sup_children
     |> Enum.find(fn
       {^id, _, _, _} -> true
       _ -> false
@@ -152,4 +163,7 @@ defmodule CircuitBreakerSupervisor.State do
       _ -> nil
     end
   end
+
+  def is_horde_registry?({:via, Horde.Registry, _key}), do: true
+  def is_horde_registry?(_), do: false
 end
