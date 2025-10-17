@@ -113,8 +113,13 @@ defmodule CircuitBreakerSupervisor.State do
 
   defp running?(supervisor, id) do
     case id_to_pid(supervisor, id) do
-      pid when is_pid(pid) -> Process.alive?(pid)
-      _ -> false
+      pid when is_pid(pid) ->
+        if node(pid) == node(),
+          do: Process.alive?(pid),
+          else: :erpc.call(node(pid), Process, :alive?, [pid])
+
+      _ ->
+        false
     end
   end
 
