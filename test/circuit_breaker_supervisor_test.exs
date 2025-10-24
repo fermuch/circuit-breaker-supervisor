@@ -39,7 +39,7 @@ defmodule CircuitBreakerSupervisorTest do
 
     # enable child and verify that it is started
     DummyFeatureFlagService.enable(:enable_me)
-    send(CircuitBreakerSupervisor.Monitor, :check_children)
+    send(DummySupervisor.Monitor, :check_children)
     assert_telemetry_start(:enable_me, 0)
     assert %{active: 1} = Supervisor.count_children(DummySupervisor.Supervisor)
   end
@@ -58,7 +58,7 @@ defmodule CircuitBreakerSupervisorTest do
 
     # disable child and verify that it is terminated
     DummyFeatureFlagService.disable(:disable_me)
-    send(CircuitBreakerSupervisor.Monitor, :check_children)
+    send(DummySupervisor.Monitor, :check_children)
     assert_telemetry_stop(:disable_me, 0)
     assert %{active: 1} = Supervisor.count_children(DummySupervisor.Supervisor)
   end
@@ -94,7 +94,7 @@ defmodule CircuitBreakerSupervisorTest do
     assert_telemetry_stop(:crash, 0)
 
     # check_children should trigger a retry, since backoff is 0
-    send(CircuitBreakerSupervisor.Monitor, :check_children)
+    send(DummySupervisor.Monitor, :check_children)
 
     # attempt count should be incremented
     assert_telemetry_stop(:crash, 1)
