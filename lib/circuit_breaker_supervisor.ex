@@ -33,16 +33,9 @@ defmodule CircuitBreakerSupervisor do
       @behaviour CircuitBreakerSupervisor
 
       def start_link(init_arg) do
-        if Keyword.has_key?(init_arg, :name) do
-          Supervisor.start_link(__MODULE__, init_arg, name: Keyword.get(init_arg, :name))
-        else
-          id = UUID.uuid4()
-          init_arg = Keyword.put(init_arg, :id, id)
+        name = Keyword.get(init_arg, :name, __MODULE__)
 
-          Supervisor.start_link(__MODULE__, init_arg,
-            name: {:global, {:circuit_breaker_supervisor, id}}
-          )
-        end
+        Supervisor.start_link(__MODULE__, init_arg, name: name)
       end
 
       @impl true
@@ -53,10 +46,8 @@ defmodule CircuitBreakerSupervisor do
         backoff_fn = if Kernel.function_exported?(__MODULE__, :backoff, 1), do: &backoff/1
         enabled_fn = if Kernel.function_exported?(__MODULE__, :enabled?, 1), do: &enabled?/1
 
-        sub_sup_default = {:global, {:circuit_breaker_sub_supervisor, id}}
-        mtr_sup_default = {:global, {:circuit_breaker_monitor, id}}
-        sub_sup_name = Keyword.get(init_arg, :sub_name, sub_sup_default)
-        mtr_sup_name = Keyword.get(init_arg, :mtr_name, mtr_sup_default)
+        sub_sup_name = Keyword.get(init_arg, :sub_name, __MODULE__.Supervisor)
+        mtr_sup_name = Keyword.get(init_arg, :mtr_name, __MODULE__.Monitor)
 
         [
           {CircuitBreakerSupervisor.Supervisor, name: sub_sup_name},
