@@ -38,7 +38,7 @@ defmodule CircuitBreakerSupervisor.MixProject do
 
   defp deps do
     [
-      {:uuid, "~> 1.1"},
+      {:elixir_uuid, "~> 1.2"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false, warn_if_outdated: true},
       {:excoveralls, "~> 0.10", only: :test},
